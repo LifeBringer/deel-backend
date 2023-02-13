@@ -95,12 +95,41 @@ app.post("/jobs/:job_id/pay", getProfile, async (req, res) => {
     job.paymentDate = new Date();
     await job.save();
 
-    contract.status = "terminated";
+    contract.status = "Terminated";
     await contract.save();
     res.json({ message: "Success" });
   } catch (error) {
     res.status(404).end(error);
   }
 });
+
+app.post("/balances/deposit/:userId/:amount", async (req, res) => {
+  try {
+    const { Profile } = getModel(req);
+    const { userId, amount } = req.params;
+    const unpaidJobs = getUnpaidJobs(userId);
+    let unpaidJobsAmount = 0;
+    unpaidJobs.map((job) => (unpaidJobsAmount += job.dataValues.price));
+
+    if (amount > 0.25 * unpaidJobsAmount) {
+      throw "Invalid deposit amount";
+    }
+    const client = await Profile.findOne({ where: { id: userId } });
+    client.balance += amount;
+    client.save();
+    res.json({ message: "Success" });
+  } catch (error) {
+    res.status(404).end(error);
+  }
+});
+
+const toDate = (date, addDay) => {
+  const [day, month, year] = date.split(/[-/]/g);
+  let response = moment(new Date(year, month - 1, day)).toDate();
+  if (addDay) {
+    response = moment(response).add(1, "day").toDate();
+  }
+  return response;
+};
 
 module.exports = app;
